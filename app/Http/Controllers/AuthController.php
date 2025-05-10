@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Interfaces\AuthRepositoryInterface;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
@@ -11,6 +12,10 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    private $authRepo;
+    public function __construct(AuthRepositoryInterface $authRepo){
+        $this->authRepo = $authRepo;
+    }
     public function index(){
         if(Auth::check()){
             return view("dashboard");
@@ -30,14 +35,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        if (Auth::attempt(['email' => $req->email, 'password' => $req->password])) {
-            $user = Auth::user();
-            $token = $user->createToken('YourApp')->plainTextToken;
-
-            return response()->json(['token' => $token], 200);
-        }
-
-        return response()->json(['status' => false, 'message' => 'Email OR Password not match!'], 401);
+        return $this->authRepo->login($req);
     }
     public function registerPage(){
         if(Auth::check()){
@@ -61,13 +59,7 @@ class AuthController extends Controller
                 ], 422);
             }
             
-            User::create([
-                'name'=> $req->name,
-                'email'=> $req->email,
-                'password'=> bcrypt($req->password)
-            ]);
-            
-            return response()->json(['status' => true, 'message' => 'User Register SuccessFully!'], 200);
+            return $this->authRepo->register($req);
         }catch(Exception $e){
             Log::info("AuthConteroller/register: ". $e->getMessage());
             return response()->json(['status'=> false,'message'=> "Internal Server Error"],500);
@@ -80,10 +72,9 @@ class AuthController extends Controller
             return response()->json(['status' => true, 'data' => $data], 200);
         }catch(Exception $e){
             Log::info("AuthConteroller/register: ". $e->getMessage());
-            return response()->json(['status'=> false,'message'=> "Internal Server Error"],500);
+            return response()->json(['status'=> false,'message'=> "Internal Server Error: ".$e->getMessage()],500);
         }
     }
-
     public function updateProfile(Request $req){
         try{
             $validator = Validator::make($req->all(),[
@@ -100,14 +91,7 @@ class AuthController extends Controller
                 ],401);
             }
 
-            $user = User::find(Auth::user()->id);
-            $user->name = $req->name;
-            $user->email = $req->email;
-            if($req->password){
-                $user->password = bcrypt($req->password);
-            }
-            $user->save();
-            return response()->json(['status' => true, 'message' => 'Profile Update SuccessFully'], 200);
+            return $this->authRepo->updateProfile($req);
         }catch(Exception $e){
             Log::info("AuthConteroller/register: ". $e->getMessage());
             return response()->json(['status'=> false,'message'=> "Internal Server Error"],500);
