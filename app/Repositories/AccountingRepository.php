@@ -53,32 +53,40 @@ class AccountingRepository implements AccoutingRepositoryInterface
 
         $newTrangactions = Trangactions::where(['user_id' => Auth::id(), 'preson_id' => $trangaction->preson_id])->where('id', '>=', $request->id)->get();
 
-        if($logData->trangcation == 'credit'){
-            $accountData->money = $accountData->money - $logData->ammount;
-            $logData->ammount = ($accountData->money - $logData->ammount) + $request->money;
-
+        if($logData->ammount > $request->money){
+            $effected_money = $logData->ammount - $request->money;
+            $accountData->money = $accountData->money - $effected_money;
+            $logData->ammount = $logData->ammount - $effected_money;
+            $accountData->save();
+            $logData->save();
+            
+            $trangaction->price = $trangaction->price - $effected_money;
+            $trangaction->total = $trangaction->total - $effected_money;
+            $trangaction->subTotal = $trangaction->subTotal - $effected_money;
+            $trangaction->save();
+            
             foreach($newTrangactions as $trang){
-                $trang->price = $request->money;
-                $trang->total = $request->money;
-                $trang->subTotal = ($trang->subTotal - $trang->price) + $request->money;
+                $trang->subTotal = ($trang->subTotal - $effected_money);
                 $trang->save();
             }
 
-        } else {
-            $accountData->money = $accountData->money + $logData->ammount;
-            $logData->ammount = ($accountData->money + $logData->ammount) - $request->money;
+        } else if ($logData->ammount < $request->money){
+            $effected_money = $request->money - $logData->ammount;
+            $accountData->money = $accountData->money + $effected_money;
+            $logData->ammount = $logData->ammount + $effected_money;
+            $accountData->save();
+            $logData->save();
+
+            $trangaction->price = $trangaction->price + $effected_money;
+            $trangaction->total = $trangaction->total + $effected_money;
+            $trangaction->subTotal = $trangaction->subTotal + $effected_money;
+            $trangaction->save();
 
             foreach($newTrangactions as $trang){
-                $trang->name = $request->name;
-                $trang->qty = $request->qty;
-                $trang->price = $request->price;
-                $trang->total = ($request->price * $request->qty);
-                $trang->subTotla = ($trang->subTotal + $trang->price) - $request->money;
+                $trang->subTotal = ($trang->subTotal + $effected_money);
                 $trang->save();
             }
         }
-        $accountData->save();
-        $logData->save();
 
         return true;
     }
